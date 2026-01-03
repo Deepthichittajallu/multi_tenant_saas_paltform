@@ -8,10 +8,11 @@ async function main() {
 
   // Super Admin
   const superAdminPassword = 'Admin@123';
-  
+
   const superAdminHash = await bcryptjs.hash(superAdminPassword, 10);
 
   const existingSuper = await prisma.user.findFirst({ where: { email: 'superadmin@system.com', tenantId: null } });
+  
   if (!existingSuper) {
     await prisma.user.create({
       data: {
