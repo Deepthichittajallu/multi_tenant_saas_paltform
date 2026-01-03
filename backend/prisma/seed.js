@@ -12,11 +12,12 @@ async function main() {
   const superAdminHash = await bcryptjs.hash(superAdminPassword, 10);
 
   const existingSuper = await prisma.user.findFirst({ where: { email: 'superadmin@system.com', tenantId: null } });
-  
+
   if (!existingSuper) {
     await prisma.user.create({
       data: {
         email: 'superadmin@system.com',
+        
         passwordHash: superAdminHash,
         fullName: 'Super Admin',
         role: 'super_admin',
