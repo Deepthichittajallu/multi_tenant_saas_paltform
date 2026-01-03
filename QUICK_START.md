@@ -325,6 +325,7 @@ docker-compose up -d
 2. Open [http://localhost:3000](http://localhost:3000)
 
 3. Login using demo credentials
+
 4. Explore available features
 5. Refer to docs/API.md for API details
 
