@@ -20,8 +20,9 @@ function AppRouter() {
       <Route path="/login" element={<LoginPage />} />
 
       <Route path="/register" element={<RegisterPage />} />
-      <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
       
+      <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
+
       <Route path="/users" element={<ProtectedRoute><UsersPage /></ProtectedRoute>} />
 
       <Route path="/projects" element={<ProtectedRoute><ProjectsPage /></ProtectedRoute>} />
