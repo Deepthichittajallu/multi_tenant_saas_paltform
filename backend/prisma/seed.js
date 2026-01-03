@@ -21,8 +21,9 @@ async function main() {
         passwordHash: superAdminHash,
 
         fullName: 'Super Admin',
-        
+
         role: 'super_admin',
+        
         tenantId: null,
       }
     });
