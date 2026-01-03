@@ -327,6 +327,7 @@ graph TB
 * 409 – Conflict
 * 500 – Server error
 
+
 ---
 
 Refer to **API.md** for in-depth API documentation.
