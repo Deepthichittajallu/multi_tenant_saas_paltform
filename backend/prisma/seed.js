@@ -19,8 +19,9 @@ async function main() {
         email: 'superadmin@system.com',
 
         passwordHash: superAdminHash,
-        
+
         fullName: 'Super Admin',
+        
         role: 'super_admin',
         tenantId: null,
       }
