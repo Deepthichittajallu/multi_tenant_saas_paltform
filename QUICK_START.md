@@ -331,16 +331,24 @@ docker-compose up -d
 ## 📝 Additional Notes
 
 * PostgreSQL is used for all data storage
+
 * Authentication tokens are stored in localStorage
+
 * Passwords are secured using bcrypt hashing
+
 * All inputs are validated via Zod
+
 * Audit logs record all data changes
+
 * Super admins have global visibility
+
 * Tenant admins are restricted to their organization
+
 * Regular users have limited permissions
 
 ---
 
 **The platform is fully set up and ready for use 🚀**
+
 
 Start by running: `docker-compose up -d`
