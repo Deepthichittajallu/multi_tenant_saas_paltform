@@ -37,8 +37,9 @@ async function main() {
       name: 'Demo Company',
 
       subdomain: 'demo',
-      
+
       status: 'active',
+      
       subscriptionPlan: 'pro',
       maxUsers: 25,
       maxProjects: 15,
