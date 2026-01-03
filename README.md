@@ -330,6 +330,7 @@ docker-compose exec backend npm test
 ✔ Subscription-aware limits
 ✔ Automated database migrations
 ✔ Audit logging
+
 ✔ Protected frontend routes
 ✔ Dockerized deployment
 ✔ Health monitoring
