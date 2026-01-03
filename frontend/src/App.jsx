@@ -24,8 +24,9 @@ function AppRouter() {
       <Route path="/users" element={<ProtectedRoute><UsersPage /></ProtectedRoute>} />
 
       <Route path="/projects" element={<ProtectedRoute><ProjectsPage /></ProtectedRoute>} />
-      
+
       <Route path="/tasks" element={<ProtectedRoute><TasksPage /></ProtectedRoute>} />
+      
       <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
       <Route path="/" element={<Navigate to="/dashboard" />} />
     </Routes>
