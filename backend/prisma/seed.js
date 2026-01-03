@@ -23,7 +23,7 @@ async function main() {
         fullName: 'Super Admin',
 
         role: 'super_admin',
-        
+
         tenantId: null,
       }
     });
@@ -35,6 +35,7 @@ async function main() {
     update: {},
     create: {
       name: 'Demo Company',
+      
       subdomain: 'demo',
       status: 'active',
       subscriptionPlan: 'pro',
