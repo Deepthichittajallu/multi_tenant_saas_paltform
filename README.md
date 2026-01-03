@@ -7,6 +7,7 @@ An enterprise-ready, multi-tenant application built to streamline project and ta
 * **Strict Tenant Isolation** – Ensures complete separation of data between organizations
 
 * **Role-Based Authorization** – Three-level access control: super_admin, tenant_admin, and user
+
 * **Secure Authentication** – JWT-based access tokens with 24-hour validity and bcrypt-based password hashing
 * **Extensive REST API** – 19 production-ready endpoints supporting full CRUD workflows
 * **Subscription Enforcement** – Plan-driven limits on users and projects
