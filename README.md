@@ -344,4 +344,4 @@ Provided for demonstration and evaluation purposes only.
 
 ---
 
-**Developed using Node.js, Express, React, PostgreSQL, and Docker**
+**Developed using Node.js, Express, React, PostgreSQL, and Docker by LAkshmi Deepthi Chittajallu**
