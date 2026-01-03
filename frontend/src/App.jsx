@@ -21,6 +21,7 @@ function AppRouter() {
 
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
+      
       <Route path="/users" element={<ProtectedRoute><UsersPage /></ProtectedRoute>} />
 
       <Route path="/projects" element={<ProtectedRoute><ProjectsPage /></ProtectedRoute>} />
@@ -28,7 +29,7 @@ function AppRouter() {
       <Route path="/tasks" element={<ProtectedRoute><TasksPage /></ProtectedRoute>} />
 
       <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
-      
+
       <Route path="/" element={<Navigate to="/dashboard" />} />
     </Routes>
   )
