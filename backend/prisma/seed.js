@@ -17,8 +17,9 @@ async function main() {
     await prisma.user.create({
       data: {
         email: 'superadmin@system.com',
-        
+
         passwordHash: superAdminHash,
+        
         fullName: 'Super Admin',
         role: 'super_admin',
         tenantId: null,
