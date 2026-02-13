@@ -267,4 +267,6 @@ After running `docker-compose up -d`:
 * Proper role-based authorization
 * Docker service isolation
 * Persistent database volumes
-# multi-tenant-saas
+
+## Author
+Lakshmi Deepthi Chittajallu
