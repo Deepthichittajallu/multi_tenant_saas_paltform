@@ -1,16 +1,25 @@
-# Frontend Dockerfile - build static and serve with serve
-FROM node:18-alpine AS builder
+FROM node:18-alpine
+
 WORKDIR /app
 
-COPY package.json package-lock.json* ./
-RUN npm install --legacy-peer-deps
+# Copy package files
+COPY frontend/package*.json ./
 
-COPY . .
+# Install dependencies
+RUN npm install
+
+# Copy frontend application code
+COPY frontend/ .
+
+# Build the application
 RUN npm run build
 
-FROM node:18-alpine
-WORKDIR /app
-RUN npm i -g serve
-COPY --from=builder /app/dist ./dist
+# Install serve to run the production build
+RUN npm install -g serve
+
+# Expose port
 EXPOSE 3000
+
+# Start server
 CMD ["serve", "-s", "dist", "-l", "3000"]
+

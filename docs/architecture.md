@@ -1,335 +1,341 @@
 # Architecture Document
+## Multi-Tenant SaaS Platform
 
-## Overall System Architecture
+## 1. System Architecture
 
-### High-Level Architecture Overview
+### High-Level Architecture
 
-```mermaid
-graph TB
-    subgraph "Client Layer"
-        Browser[User Web Browser]
-    end
-    
-    subgraph "Frontend Layer - Port 3000"
-        Frontend[Frontend Application<br/>React (Vite) + React Router]
-    end
-    
-    subgraph "Backend Layer - Port 5000"
-        API[API Server<br/>Express.js + Node.js + TypeScript]
-        Auth[JWT-Based Authentication<br/>Middleware]
-        RBAC[Role-Based Access Control<br/>Middleware]
-        Tenant[Tenant-Aware Data Isolation<br/>Middleware]
-    end
-    
-    subgraph "Database Layer - Port 5432"
-        DB[(PostgreSQL 15<br/>Multi-Tenant Storage)]
-    end
-    
-    Browser -->|HTTP/HTTPS Requests| Frontend
-    Frontend -->|REST APIs<br/>JSON| API
-    API --> Auth
-    Auth --> RBAC
-    RBAC --> Tenant
-    Tenant --> DB
+The system follows a three-tier architecture:
+
+```
+┌─────────────────┐
+│   Web Browser   │
+│   (Frontend)    │
+└────────┬────────┘
+         │ HTTP/HTTPS
+         │
+┌────────▼────────┐
+│  React SPA      │
+│  (Port 3000)    │
+│  - Components   │
+│  - Pages        │
+│  - Services     │
+└────────┬────────┘
+         │ REST API
+         │ JWT Auth
+         │
+┌────────▼────────┐
+│  Express API    │
+│  (Port 5000)    │
+│  - Controllers  │
+│  - Middleware   │
+│  - Routes       │
+└────────┬────────┘
+         │ SQL Queries
+         │
+┌────────▼────────┐
+│  PostgreSQL     │
+│  (Port 5432)    │
+│  - Tenants      │
+│  - Users        │
+│  - Projects     │
+│  - Tasks        │
+└─────────────────┘
 ```
 
-### Architecture Breakdown
+### Authentication Flow
 
-**Client Layer:**
-
-* End users interact with the system through modern web browsers using HTTP or HTTPS.
-
-**Frontend Layer (Port 3000):**
-
-* Built using React 18 with the Vite build system
-* Client-side routing managed through React Router
-* Route protection enforced via authentication guards
-* Fully responsive and user-friendly interface
-
-**Backend Layer (Port 5000):**
-
-* RESTful API developed using Express.js and TypeScript
-* JWT middleware to authenticate incoming requests
-* Role-based authorization to restrict access by user role
-* Tenant isolation layer to ensure strict data separation
-* Centralized error handling for consistent responses
-
-**Database Layer (Port 5432):**
-
-* PostgreSQL 15 used as the primary relational database
-* Supports multi-tenancy using tenant-specific identifiers
-* Prisma ORM handles queries, migrations, and seeding
-
-### User Authentication Flow
-
-```mermaid
-sequenceDiagram
-    participant User
-    participant Frontend
-    participant API
-    participant JWT
-    participant Database
-    
-    User->>Frontend: Provide login credentials + tenant subdomain
-    Frontend->>API: POST /api/auth/login
-    API->>Database: Validate tenant existence
-    Database-->>API: Tenant information
-    API->>Database: Validate user credentials
-    Database-->>API: User record
-    API->>JWT: Create JWT (userId, tenantId, role)
-    JWT-->>API: Signed token
-    API-->>Frontend: Token and user details
-    Frontend->>Frontend: Persist token in localStorage
-    Frontend-->>User: Redirect to user dashboard
+```
+1. User submits login form
+   ↓
+2. Frontend sends POST /api/auth/login
+   ↓
+3. Backend validates credentials
+   ↓
+4. Backend generates JWT token
+   ↓
+5. Frontend stores token in localStorage
+   ↓
+6. Frontend includes token in Authorization header for all requests
+   ↓
+7. Backend middleware validates token on each request
+   ↓
+8. Backend extracts userId, tenantId, role from token
+   ↓
+9. Backend processes request with tenant isolation
 ```
 
-## Database Design
+### Data Flow - Creating a Project
 
-### Entity Relationship Model
-
-```mermaid
-erDiagram
-    TENANTS ||--o{ USERS : owns
-    TENANTS ||--o{ PROJECTS : owns
-    TENANTS ||--o{ TASKS : owns
-    TENANTS ||--o{ AUDIT_LOGS : logs
-    
-    USERS ||--o{ PROJECTS : creates
-    USERS ||--o{ TASKS : assigned
-    USERS ||--o{ AUDIT_LOGS : triggers
-    
-    PROJECTS ||--o{ TASKS : includes
-    
-    TENANTS {
-        uuid id PK
-        string name
-        string subdomain UK
-        enum status
-        enum subscription_plan
-        int max_users
-        int max_projects
-        timestamp created_at
-        timestamp updated_at
-    }
-    
-    USERS {
-        uuid id PK
-        uuid tenant_id FK
-        string email
-        string password_hash
-        string full_name
-        enum role
-        boolean is_active
-        timestamp created_at
-        timestamp updated_at
-    }
-    
-    PROJECTS {
-        uuid id PK
-        uuid tenant_id FK
-        string name
-        text description
-        enum status
-        uuid created_by FK
-        timestamp created_at
-        timestamp updated_at
-    }
-    
-    TASKS {
-        uuid id PK
-        uuid project_id FK
-        uuid tenant_id FK
-        string title
-        text description
-        enum status
-        enum priority
-        uuid assigned_to FK
-        date due_date
-        timestamp created_at
-        timestamp updated_at
-    }
-    
-    AUDIT_LOGS {
-        uuid id PK
-        uuid tenant_id FK
-        uuid user_id FK
-        string action
-        string entity_type
-        string entity_id
-        string ip_address
-        timestamp created_at
-    }
+```
+1. User clicks "Create Project"
+   ↓
+2. Frontend sends POST /api/projects with JWT token
+   ↓
+3. Auth middleware validates token, extracts tenantId
+   ↓
+4. Controller checks subscription limit
+   ↓
+5. Controller creates project with tenantId from JWT
+   ↓
+6. Controller logs action in audit_logs
+   ↓
+7. Response returned to frontend
+   ↓
+8. Frontend updates UI
 ```
 
-### Table Descriptions
+## 2. Database Schema Design
 
-**tenants**
+### Entity Relationship Diagram
 
-* Holds organization-level details
-* Each tenant is uniquely identified by a subdomain
-* Tracks subscription plans, usage limits, and status
+```
+┌─────────────┐
+│   tenants   │
+├─────────────┤
+│ id (PK)     │
+│ name        │
+│ subdomain   │◄─────┐
+│ status      │      │
+│ plan        │      │
+│ max_users   │      │
+│ max_projects│      │
+└─────────────┘      │
+                     │
+┌─────────────┐      │
+│    users    │      │
+├─────────────┤      │
+│ id (PK)     │      │
+│ tenant_id   │──────┘
+│ email       │      │
+│ password    │      │
+│ full_name   │      │
+│ role        │      │
+│ is_active   │      │
+└──────┬──────┘      │
+       │             │
+       │             │
+┌──────▼──────┐      │
+│  projects   │      │
+├─────────────┤      │
+│ id (PK)     │      │
+│ tenant_id   │──────┘
+│ name        │      │
+│ description │      │
+│ status      │      │
+│ created_by  │──────┐
+└──────┬──────┘      │
+       │             │
+       │             │
+┌──────▼──────┐      │
+│    tasks    │      │
+├─────────────┤      │
+│ id (PK)     │      │
+│ project_id  │──────┘
+│ tenant_id   │──────┐
+│ title       │      │
+│ description │      │
+│ status      │      │
+│ priority    │      │
+│ assigned_to│──────┘
+│ due_date    │
+└─────────────┘
 
-**users**
-
-* Stores authentication and profile information
-* Linked to tenants via tenant_id (nullable for super admins)
-* Enforces unique email per tenant
-* Supports roles: super_admin, tenant_admin, user
-
-**projects**
-
-* Represents projects owned by a tenant
-* Created and managed by users
-* Can be active, archived, or completed
-
-**tasks**
-
-* Individual work items under projects
-* Associated with both project and tenant
-* Supports priority levels and status tracking
-
-**audit_logs**
-
-* Maintains an audit trail for security and compliance
-* Logs user actions along with metadata such as IP address
-
-### Tenant Data Isolation Model
-
-```mermaid
-graph TB
-    subgraph "Tenant A"
-        A1[Users]
-        A2[Projects]
-        A3[Tasks]
-    end
-    
-    subgraph "Tenant B"
-        B1[Users]
-        B2[Projects]
-        B3[Tasks]
-    end
-    
-    Filter[tenant_id Enforcement Layer]
-    
-    Filter -.-> A1
-    Filter -.-> A2
-    Filter -.-> A3
-    Filter -.-> B1
-    Filter -.-> B2
-    Filter -.-> B3
+┌─────────────┐
+│ audit_logs  │
+├─────────────┤
+│ id (PK)     │
+│ tenant_id   │
+│ user_id     │
+│ action      │
+│ entity_type │
+│ entity_id   │
+│ ip_address  │
+│ created_at  │
+└─────────────┘
 ```
 
-**Isolation Strategy:**
+### Key Design Decisions
 
-* All tenant-owned records include a tenant_id column
-* JWT tokens provide tenant context for every request
-* Middleware ensures queries are always tenant-scoped
-* Super admins are exempt from tenant restrictions
-* Foreign keys and indexes improve integrity and performance
+1. **Tenant Isolation**: Every table (except super_admin users) has `tenant_id` column
+2. **Foreign Keys**: All foreign keys have CASCADE delete for data integrity
+3. **Indexes**: All `tenant_id` columns are indexed for performance
+4. **Unique Constraints**: `UNIQUE(tenant_id, email)` ensures email uniqueness per tenant
+5. **Super Admin**: Users with `role = 'super_admin'` have `tenant_id = NULL`
 
-## API Design
+## 3. API Architecture
 
-### Available API Endpoints
+### API Endpoint Organization
 
-**Authentication**
+All APIs follow RESTful conventions and are organized by resource:
 
-* POST /api/auth/register-tenant – Create a new tenant
-* POST /api/auth/login – Authenticate a user
-* GET /api/auth/me – Retrieve logged-in user details
-* POST /api/auth/logout – Logout user
+#### Authentication Endpoints (`/api/auth`)
+- `POST /api/auth/register-tenant` - Register new tenant
+- `POST /api/auth/login` - User login
+- `GET /api/auth/me` - Get current user
+- `POST /api/auth/logout` - Logout
 
-**Tenant Management**
+#### Tenant Endpoints (`/api/tenants`)
+- `GET /api/tenants` - List all tenants (super admin only)
+- `GET /api/tenants/:tenantId` - Get tenant details
+- `PUT /api/tenants/:tenantId` - Update tenant
 
-* GET /api/tenants/:tenantId – Fetch tenant details
-* PUT /api/tenants/:tenantId – Modify tenant information
-* GET /api/tenants – View all tenants (super admin only)
+#### User Endpoints (`/api/tenants/:tenantId/users` and `/api/users`)
+- `POST /api/tenants/:tenantId/users` - Add user to tenant
+- `GET /api/tenants/:tenantId/users` - List tenant users
+- `PUT /api/users/:userId` - Update user
+- `DELETE /api/users/:userId` - Delete user
 
-**User Management**
+#### Project Endpoints (`/api/projects`)
+- `POST /api/projects` - Create project
+- `GET /api/projects` - List projects
+- `PUT /api/projects/:projectId` - Update project
+- `DELETE /api/projects/:projectId` - Delete project
 
-* POST /api/tenants/:tenantId/users – Add tenant user
-* GET /api/tenants/:tenantId/users – List tenant users
-* PUT /api/users/:userId – Update user profile
-* DELETE /api/users/:userId – Remove user
+#### Task Endpoints (`/api/projects/:projectId/tasks` and `/api/tasks`)
+- `POST /api/projects/:projectId/tasks` - Create task
+- `GET /api/projects/:projectId/tasks` - List project tasks
+- `PATCH /api/tasks/:taskId/status` - Update task status
+- `PUT /api/tasks/:taskId` - Update task
 
-**Project Management**
+### Authentication Requirements
 
-* POST /api/projects – Create project
-* GET /api/projects – List projects
-* PUT /api/projects/:projectId – Update project
-* DELETE /api/projects/:projectId – Delete project
+| Endpoint | Authentication | Authorization |
+|----------|---------------|--------------|
+| POST /api/auth/register-tenant | None | Public |
+| POST /api/auth/login | None | Public |
+| GET /api/auth/me | Required | Any authenticated user |
+| POST /api/auth/logout | Required | Any authenticated user |
+| GET /api/tenants | Required | Super admin only |
+| GET /api/tenants/:tenantId | Required | Own tenant or super admin |
+| PUT /api/tenants/:tenantId | Required | Tenant admin or super admin |
+| POST /api/tenants/:tenantId/users | Required | Tenant admin only |
+| GET /api/tenants/:tenantId/users | Required | Own tenant or super admin |
+| PUT /api/users/:userId | Required | Self (limited) or tenant admin |
+| DELETE /api/users/:userId | Required | Tenant admin or super admin |
+| POST /api/projects | Required | Any authenticated user |
+| GET /api/projects | Required | Own tenant or super admin |
+| PUT /api/projects/:projectId | Required | Creator or tenant admin |
+| DELETE /api/projects/:projectId | Required | Creator or tenant admin |
+| POST /api/projects/:projectId/tasks | Required | Own tenant or super admin |
+| GET /api/projects/:projectId/tasks | Required | Own tenant or super admin |
+| PATCH /api/tasks/:taskId/status | Required | Own tenant or super admin |
+| PUT /api/tasks/:taskId | Required | Own tenant or super admin |
 
-**Task Management**
+### Response Format
 
-* POST /api/projects/:projectId/tasks – Create task
-* GET /api/projects/:projectId/tasks – Retrieve tasks
-* PATCH /api/tasks/:taskId/status – Change task status
-* PUT /api/tasks/:taskId – Edit task
-* DELETE /api/tasks/:taskId – Remove task
+All APIs return consistent response format:
 
-**System**
-
-* GET /api/health – Application health check
-
-### API Security Model
-
-**Authentication:**
-
-* Stateless JWT-based authentication
-* Tokens valid for 24 hours
-* Payload includes userId, tenantId, and role
-* Sent using Authorization: Bearer <token>
-
-**Authorization Levels:**
-
-* Public: No authentication needed
-* Authenticated: Valid JWT required
-* Role-Specific: Access controlled by role
-* Tenant-Scoped: Data access limited to tenant
-
-**Request Lifecycle:**
-
-1. Client sends request with JWT
-2. Token is verified by auth middleware
-3. Role permissions are validated
-4. Tenant scope is enforced
-5. Controller executes business logic
-6. Standardized response returned
-
-### Standard Response Structure
-
-**Successful Response**
-
+**Success Response:**
 ```json
 {
   "success": true,
-  "message": "Optional description",
-  "data": {}
+  "message": "Optional message",
+  "data": { ... }
 }
 ```
 
-**Error Response**
-
+**Error Response:**
 ```json
 {
   "success": false,
-  "message": "Error details"
+  "message": "Error description"
 }
 ```
 
-**HTTP Status Codes Used:**
+### HTTP Status Codes
 
-* 200 – OK
-* 201 – Created
-* 400 – Validation failure
-* 401 – Unauthorized
-* 403 – Access denied
-* 404 – Resource not found
-* 409 – Conflict
-* 500 – Server error
+- `200 OK` - Successful GET, PUT, PATCH, DELETE
+- `201 Created` - Successful POST (resource created)
+- `400 Bad Request` - Validation errors, invalid input
+- `401 Unauthorized` - Missing or invalid authentication token
+- `403 Forbidden` - Insufficient permissions, subscription limit reached
+- `404 Not Found` - Resource not found
+- `409 Conflict` - Resource conflict (e.g., duplicate email)
+- `500 Internal Server Error` - Server error
 
+## 4. Security Architecture
 
----
+### Multi-Layer Security
 
-Refer to **API.md** for in-depth API documentation.
+1. **Transport Layer**: HTTPS in production (not implemented in demo)
+2. **Authentication Layer**: JWT tokens with expiration
+3. **Authorization Layer**: Role-based access control (RBAC)
+4. **Data Layer**: Tenant isolation via middleware
+5. **Application Layer**: Input validation, SQL injection prevention
+6. **Audit Layer**: Comprehensive logging
 
-Refer to **images/diagrams.md** for exported diagram images.
+### Tenant Isolation Implementation
+
+```
+Request → Auth Middleware → Extract tenantId from JWT
+    ↓
+Authorization Middleware → Check role permissions
+    ↓
+Controller → Add tenantId filter to queries
+    ↓
+Database → Return only tenant's data
+```
+
+### Security Flow - Data Access
+
+1. User makes API request with JWT token
+2. Auth middleware validates token and extracts `tenantId`
+3. Authorization middleware checks user role
+4. Controller automatically filters queries by `tenantId`
+5. Database returns only data belonging to user's tenant
+6. Response sent to frontend
+
+## 5. Deployment Architecture
+
+### Docker Container Architecture
+
+```
+┌─────────────────────────────────────┐
+│      Docker Compose Network         │
+│                                     │
+│  ┌──────────┐    ┌──────────┐     │
+│  │ Frontend │───▶│ Backend  │     │
+│  │ :3000    │    │ :5000    │     │
+│  └──────────┘    └────┬─────┘     │
+│                       │            │
+│                  ┌────▼─────┐     │
+│                  │ Database │     │
+│                  │ :5432    │     │
+│                  └──────────┘     │
+└─────────────────────────────────────┘
+```
+
+### Service Communication
+
+- Frontend → Backend: HTTP requests to `http://backend:5000`
+- Backend → Database: PostgreSQL connection to `database:5432`
+- All services use Docker service names for internal communication
+- External access via localhost ports (3000, 5000, 5432)
+
+## 6. Scalability Considerations
+
+### Current Architecture Supports
+
+- **Horizontal Scaling**: Backend can be scaled by adding more instances
+- **Database Scaling**: Can migrate to read replicas for read-heavy workloads
+- **Caching**: Can add Redis for session/token caching (future)
+- **Load Balancing**: Can add load balancer in front of backend (future)
+
+### Performance Optimizations
+
+1. **Database Indexes**: All `tenant_id` columns indexed
+2. **Connection Pooling**: PostgreSQL connection pool in backend
+3. **Pagination**: All list endpoints support pagination
+4. **Query Optimization**: Efficient JOINs, proper WHERE clauses
+
+## 7. Future Architecture Enhancements
+
+1. **Microservices**: Split into auth service, tenant service, project service
+2. **Message Queue**: Add RabbitMQ/Kafka for async operations
+3. **Caching Layer**: Add Redis for frequently accessed data
+4. **CDN**: Serve static assets via CDN
+5. **API Gateway**: Add API gateway for rate limiting, routing
+6. **Monitoring**: Add Prometheus, Grafana for metrics
+7. **Logging**: Centralized logging with ELK stack
+

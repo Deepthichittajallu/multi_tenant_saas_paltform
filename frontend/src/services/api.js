@@ -1,148 +1,79 @@
-// Use environment variable for API URL (VITE_API_URL for Vite)
-// In Docker: http://backend:5000
-// In local dev: http://localhost:5000
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+import axios from 'axios';
 
-function getHeaders(token) {
-  return {
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+
+const api = axios.create({
+  baseURL: API_URL,
+  headers: {
     'Content-Type': 'application/json',
-    ...(token && { Authorization: `Bearer ${token}` })
-  };
-}
+  },
+});
 
-async function handleResponse(response) {
-  const data = await response.json();
-  if (!response.ok) {
-    throw new Error(data.message || 'API error');
+// Add token to requests
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
   }
-  return data.data || data;
-}
+);
 
-export const apiService = {
-  // Tenants
-  listTenants: (token) =>
-    fetch(`${API_URL}/api/tenants`, {
-      headers: getHeaders(token)
-    }).then(handleResponse),
-
-  // Users
-  addUser: (token, email, password, fullName, role = 'user', tenantId = null) => {
-    // Use explicit tenantId or get from token JWT payload
-    let tid = tenantId;
-    if (!tid) {
-      const payload = JSON.parse(atob(token.split('.')[1]));
-      tid = payload.tenantId;
+// Handle 401 errors (unauthorized)
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      window.location.href = '/login';
     }
-    if (!tid) throw new Error('No tenantId available');
-    return fetch(`${API_URL}/api/tenants/${tid}/users`, {
-      method: 'POST',
-      headers: getHeaders(token),
-      body: JSON.stringify({ email, password, fullName, role })
-    }).then(handleResponse);
-  },
+    return Promise.reject(error);
+  }
+);
 
-  listTenantUsers: (token, tenantId = null) => {
-    let tid = tenantId;
-    if (!tid) {
-      const payload = JSON.parse(atob(token.split('.')[1]));
-      tid = payload.tenantId;
-    }
-    if (!tid) throw new Error('No tenantId available');
-    return fetch(`${API_URL}/api/tenants/${tid}/users`, {
-      headers: getHeaders(token)
-    }).then(handleResponse);
-  },
-
-  updateUser: (token, userId, data) =>
-    fetch(`${API_URL}/api/users/${userId}`, {
-      method: 'PUT',
-      headers: getHeaders(token),
-      body: JSON.stringify(data)
-    }).then(handleResponse),
-
-  deleteUser: (token, userId) =>
-    fetch(`${API_URL}/api/users/${userId}`, {
-      method: 'DELETE',
-      headers: getHeaders(token)
-    }).then(handleResponse),
-
-  // Projects
-  createProject: (token, name, description, status = 'active', tenantId = null) => {
-    // Use explicit tenantId or get from token JWT payload
-    let tid = tenantId;
-    if (!tid) {
-      const payload = JSON.parse(atob(token.split('.')[1]));
-      tid = payload.tenantId;
-    }
-    if (!tid) throw new Error('No tenantId available');
-    return fetch(`${API_URL}/api/tenants/${tid}/projects`, {
-      method: 'POST',
-      headers: getHeaders(token),
-      body: JSON.stringify({ name, description, status })
-    }).then(handleResponse);
-  },
-
-  listProjects: (token, tenantId = null) => {
-    // Use explicit tenantId or get from token JWT payload
-    let tid = tenantId;
-    if (!tid) {
-      const payload = JSON.parse(atob(token.split('.')[1]));
-      tid = payload.tenantId;
-    }
-    if (!tid) throw new Error('No tenantId available');
-    return fetch(`${API_URL}/api/tenants/${tid}/projects`, {
-      headers: getHeaders(token)
-    }).then(handleResponse);
-  },
-
-  updateProject: (token, projectId, name, description, status) =>
-    fetch(`${API_URL}/api/projects/${projectId}`, {
-      method: 'PUT',
-      headers: getHeaders(token),
-      body: JSON.stringify({ name, description, status })
-    }).then(handleResponse),
-
-  deleteProject: (token, projectId) =>
-    fetch(`${API_URL}/api/projects/${projectId}`, {
-      method: 'DELETE',
-      headers: getHeaders(token)
-    }).then(handleResponse),
-
-  // Tasks
-  createTask: (token, title, description, projectId, priority = 'medium', status = 'pending') =>
-    fetch(`${API_URL}/api/projects/${projectId}/tasks`, {
-      method: 'POST',
-      headers: getHeaders(token),
-      body: JSON.stringify({ title, description, priority, status })
-    }).then(handleResponse),
-
-  listTasks: (token, projectId) =>
-    fetch(`${API_URL}/api/projects/${projectId}/tasks`, {
-      headers: getHeaders(token)
-    }).then(handleResponse),
-
-  updateTask: (token, taskId, title, description, status, priority) =>
-    fetch(`${API_URL}/api/tasks/${taskId}`, {
-      method: 'PUT',
-      headers: getHeaders(token),
-      body: JSON.stringify({ title, description, status, priority })
-    }).then(handleResponse),
-
-  deleteTask: (token, taskId) =>
-    fetch(`${API_URL}/api/tasks/${taskId}`, {
-      method: 'DELETE',
-      headers: getHeaders(token)
-    }).then(handleResponse),
-
-  getTenant: (token, tenantId) =>
-    fetch(`${API_URL}/api/tenants/${tenantId}`, {
-      headers: getHeaders(token)
-    }).then(handleResponse),
-
-  updateTenant: (token, tenantId, data) =>
-    fetch(`${API_URL}/api/tenants/${tenantId}`, {
-      method: 'PUT',
-      headers: getHeaders(token),
-      body: JSON.stringify(data)
-    }).then(handleResponse)
+// Auth APIs
+export const authAPI = {
+  registerTenant: (data) => api.post('/auth/register-tenant', data),
+  login: (data) => api.post('/auth/login', data),
+  getCurrentUser: () => api.get('/auth/me'),
+  logout: () => api.post('/auth/logout'),
 };
+
+// Tenant APIs
+export const tenantAPI = {
+  getTenant: (tenantId) => api.get(`/tenants/${tenantId}`),
+  updateTenant: (tenantId, data) => api.put(`/tenants/${tenantId}`, data),
+  listTenants: (params) => api.get('/tenants', { params }),
+};
+
+// User APIs
+export const userAPI = {
+  addUser: (tenantId, data) => api.post(`/tenants/${tenantId}/users`, data),
+  listUsers: (tenantId, params) => api.get(`/tenants/${tenantId}/users`, { params }),
+  updateUser: (userId, data) => api.put(`/users/${userId}`, data),
+  deleteUser: (userId) => api.delete(`/users/${userId}`),
+};
+
+// Project APIs
+export const projectAPI = {
+  createProject: (data) => api.post('/projects', data),
+  listProjects: (params) => api.get('/projects', { params }),
+  updateProject: (projectId, data) => api.put(`/projects/${projectId}`, data),
+  deleteProject: (projectId) => api.delete(`/projects/${projectId}`),
+};
+
+// Task APIs
+export const taskAPI = {
+  createTask: (projectId, data) => api.post(`/projects/${projectId}/tasks`, data),
+  listTasks: (projectId, params) => api.get(`/projects/${projectId}/tasks`, { params }),
+  updateTaskStatus: (taskId, status) => api.patch(`/tasks/${taskId}/status`, { status }),
+  updateTask: (taskId, data) => api.put(`/tasks/${taskId}`, data),
+};
+
+export default api;
+
